@@ -1,0 +1,24 @@
+{
+  "name": "claudeclear-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server for ClaudeClear - removes the invisible Claude watermark by rewriting text at the sentence level.",
+  "type": "module",
+  "bin": {
+    "claudeclear-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "node --watch --env-file=.env dist/index.js",
+    "test": "node dist/test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
