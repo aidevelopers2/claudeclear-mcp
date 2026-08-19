@@ -50,6 +50,10 @@ CLAUDECLEAR_MCP_HTTP=1 CLAUDECLEAR_API_KEY=your-key npx claudeclear-mcp
 
 Server listens on port 3311 by default.
 
+## Listed in
+
+- [Claude Market MCP directory](https://www.claudemarket.ai/mcp)
+
 ## License
 
 MIT
