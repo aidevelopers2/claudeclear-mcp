@@ -1,20 +1,26 @@
+#!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { createServer } from "node:http";
 
-const API_KEY = process.env.CLAUDECLEAR_API_KEY;
-if (!API_KEY) {
-  console.error("Missing CLAUDECLEAR_API_KEY. Get one at https://removeclaudewatermark.com/account");
-  if (process.env.CLAUDECLEAR_MCP_HTTP !== "1") process.exit(1);
-}
-
 const BASE_URL = process.env.CLAUDECLEAR_API_URL || "https://removeclaudewatermark.com";
+
+/** fetch with an abort timeout so a hung upstream can't leave a tool call pending forever. */
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 120_000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export function createMcpServer() {
   const server = new McpServer(
-    { name: "claudeclear", version: "1.0.0" },
+    { name: "claudeclear", version: "1.0.1" },
     {
       capabilities: {
         tools: {
@@ -35,40 +41,67 @@ export function createMcpServer() {
       },
     },
     async ({ text }: { text: string }) => {
-      const res = await fetch(`${BASE_URL}/api/v1/rewrite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY}` },
-        body: JSON.stringify({ text }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
+      // Key is read lazily so the server can still start and expose the free
+      // strip_image_metadata tool without a key configured.
+      const apiKey = process.env.CLAUDECLEAR_API_KEY;
+      if (!apiKey) {
         return {
           isError: true,
-          content: [{ type: "text", text: `Rewrite failed (${res.status}): ${data.error || "unknown error"}` }],
+          content: [{ type: "text", text: "Missing CLAUDECLEAR_API_KEY. Get one at https://removeclaudewatermark.com/account and set it in your MCP client config." }],
         };
       }
+      try {
+        const res = await fetchWithTimeout(`${BASE_URL}/api/v1/rewrite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ text }),
+        });
 
-      const checkText = data.check
-        ? data.check.ok
-          ? "\n\nMeaning check: clean. Facts, numbers and code survived."
-          : `\n\nMeaning check flagged issues:\n${(data.check.issues || []).map((i: string) => `- ${i}`).join("\n")}`
-        : "";
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
 
-      const stripText = data.invisibleCharsStripped
-        ? `\n\nInvisible characters stripped: ${data.invisibleCharsStripped}`
-        : "";
+        if (!res.ok) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: `Rewrite failed (${res.status}): ${(data as { error?: string }).error || "unknown error"}` }],
+          };
+        }
 
-      return {
-        content: [{ type: "text", text: data.rewritten + checkText + stripText }],
-        structuredContent: {
-          rewritten: data.rewritten,
-          words: data.words,
-          invisibleCharsStripped: data.invisibleCharsStripped ?? undefined,
-          check: data.check,
-        },
-      };
+        const d = data as { rewritten?: string; words?: number; invisibleCharsStripped?: number; check?: { ok: boolean; issues?: string[] } | null };
+        if (typeof d.rewritten !== "string") {
+          return {
+            isError: true,
+            content: [{ type: "text", text: "Rewrite failed: the server returned an unexpected response." }],
+          };
+        }
+
+        const checkText = d.check
+          ? d.check.ok
+            ? "\n\nMeaning check: clean. Facts, numbers and code survived."
+            : `\n\nMeaning check flagged issues:\n${(d.check.issues || []).map((i: string) => `- ${i}`).join("\n")}`
+          : "";
+
+        const stripText = d.invisibleCharsStripped
+          ? `\n\nInvisible characters stripped: ${d.invisibleCharsStripped}`
+          : "";
+
+        return {
+          content: [{ type: "text", text: d.rewritten + checkText + stripText }],
+          structuredContent: {
+            rewritten: d.rewritten,
+            words: d.words,
+            invisibleCharsStripped: d.invisibleCharsStripped ?? undefined,
+            check: d.check,
+          },
+        };
+      } catch (error) {
+        const msg = error instanceof Error && error.name === "AbortError"
+          ? "The request timed out."
+          : error instanceof Error ? error.message : "Unknown error";
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Rewrite error: ${msg}` }],
+        };
+      }
     },
   );
 
@@ -85,7 +118,7 @@ export function createMcpServer() {
     async ({ image_url }: { image_url: string }) => {
       try {
         // Fetch the image
-        const imageRes = await fetch(image_url);
+        const imageRes = await fetchWithTimeout(image_url, {}, 60_000);
         if (!imageRes.ok) {
           return {
             isError: true,
@@ -100,20 +133,19 @@ export function createMcpServer() {
         const formData = new FormData();
         formData.append("file", new Blob([imageBuffer]), filename);
 
-        const res = await fetch(`${BASE_URL}/api/strip-metadata`, {
+        const res = await fetchWithTimeout(`${BASE_URL}/api/strip-metadata`, {
           method: "POST",
           body: formData,
-        });
+        }, 60_000);
 
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
+          const data = await res.json().catch(() => ({} as Record<string, unknown>));
           return {
             isError: true,
-            content: [{ type: "text", text: `Metadata strip failed (${res.status}): ${data.error || "unknown error"}` }],
+            content: [{ type: "text", text: `Metadata strip failed (${res.status}): ${(data as { error?: string }).error || "unknown error"}` }],
           };
         }
 
-        const cleanedBuffer = await res.arrayBuffer();
         const metadataRemoved = res.headers.get("X-Metadata-Removed") || "";
         const originalSize = res.headers.get("X-Original-Size") || "0";
         const cleanedSize = res.headers.get("X-Cleaned-Size") || "0";
@@ -133,9 +165,12 @@ export function createMcpServer() {
           },
         };
       } catch (error) {
+        const msg = error instanceof Error && error.name === "AbortError"
+          ? "The request timed out."
+          : error instanceof Error ? error.message : "Unknown error";
         return {
           isError: true,
-          content: [{ type: "text", text: `Error: ${error instanceof Error ? error.message : "Unknown error"}` }],
+          content: [{ type: "text", text: `Error: ${msg}` }],
         };
       }
     },
@@ -150,13 +185,29 @@ async function runStdio() {
   await server.connect(transport);
 }
 
-async function runHttp() {
-  const server = createMcpServer();
+function runHttp() {
   const port = Number(process.env.PORT || 3311);
 
+  // Stateless: a fresh server + transport per request. Connecting one server to
+  // multiple transports throws, so we must NOT reuse a single server here.
   const httpServer = createServer((req, res) => {
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-    server.connect(transport).then(() => transport.handleRequest(req, res));
+    if (req.method !== "POST") {
+      res.writeHead(405, { Allow: "POST" }).end("Method Not Allowed");
+      return;
+    }
+    (async () => {
+      const server = createMcpServer();
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      res.on("close", () => {
+        transport.close().catch(() => {});
+        server.close().catch(() => {});
+      });
+      await server.connect(transport);
+      await transport.handleRequest(req, res);
+    })().catch((e) => {
+      console.error("HTTP request error:", e);
+      if (!res.headersSent) res.writeHead(500, { "Content-Type": "application/json" }).end(JSON.stringify({ error: "internal error" }));
+    });
   });
 
   httpServer.listen(port, () => {
@@ -165,10 +216,7 @@ async function runHttp() {
 }
 
 if (process.env.CLAUDECLEAR_MCP_HTTP === "1") {
-  runHttp().catch((e) => {
-    console.error(e);
-    process.exit(1);
-  });
+  runHttp();
 } else {
   runStdio().catch((e) => {
     console.error(e);
