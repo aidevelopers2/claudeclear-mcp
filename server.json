@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.aidevelopers2/claudeclear-mcp",
+  "description": "Removes the Claude text watermark by rewriting text through a non-watermarking model, and strips C2PA/EXIF metadata from images.",
+  "version": "1.0.1",
+  "repository": {
+    "url": "https://github.com/aidevelopers2/claudeclear-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "claudeclear-mcp",
+      "version": "1.0.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "API key from removeclaudewatermark.com/account. Required for the rewrite_text tool; the strip_image_metadata tool works without it.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "CLAUDECLEAR_API_KEY"
+        }
+      ]
+    }
+  ]
+}
