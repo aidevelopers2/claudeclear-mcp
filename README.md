@@ -10,7 +10,18 @@ Rewrites text to remove Claude's statistical watermark. Preserves meaning, facts
 ### `strip_image_metadata`
 Removes C2PA "Made with Claude" credentials, EXIF, XMP, ICC, and all other metadata from images. Supports JPG, PNG, WebP, GIF, TIFF.
 
-## Install
+## Hosted connector (use this one)
+
+The hosted connector now lives at **https://removeclaudewatermark.com/api/mcp** and uses OAuth: sign in with your
+ClaudeRewrite account and usage comes out of your plan's word quota. Setup: https://removeclaudewatermark.com/docs/mcp
+
+```bash
+claude mcp add --transport http claudeclear https://removeclaudewatermark.com/api/mcp
+```
+
+The old `claudeclear-mcp.vercel.app/api/mcp` endpoint is retired: it no longer rewrites and only points to the new URL.
+
+## Install (local stdio package, bring your own API key)
 
 ```bash
 npx claudeclear-mcp

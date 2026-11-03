@@ -6,9 +6,9 @@
 - **Name**: claudeclear
 - **Category**: MCP & Tooling / AI Writing & Content
 - **Tags**: claude watermark, ai-detection, rewrite, writing, watermark removal
-- **Server URL**: `https://claudeclear-mcp.vercel.app/api/mcp`
+- **Server URL**: `https://removeclaudewatermark.com/api/mcp`
 - **Website**: `https://removeclaudewatermark.com`
-- **Install command**: `claude mcp add claudeclear --transport http https://claudeclear-mcp.vercel.app/api/mcp`
+- **Install command**: `claude mcp add claudeclear --transport http https://removeclaudewatermark.com/api/mcp`
 
 ## Short description (one line)
 
@@ -34,7 +34,7 @@ Backed by the ClaudeClear rewrite API (removeclaudewatermark.com). Free to try; 
 
 Claude Code:
 ```
-claude mcp add claudeclear --transport http https://claudeclear-mcp.vercel.app/api/mcp
+claude mcp add claudeclear --transport http https://removeclaudewatermark.com/api/mcp
 ```
 
 Claude Desktop (claude_desktop_config.json):
@@ -43,7 +43,7 @@ Claude Desktop (claude_desktop_config.json):
   "mcpServers": {
     "claudeclear": {
       "type": "http",
-      "url": "https://claudeclear-mcp.vercel.app/api/mcp"
+      "url": "https://removeclaudewatermark.com/api/mcp"
     }
   }
 }
