@@ -1,69 +1,57 @@
-# ClaudeRewrite MCP Server
+# ClaudeRewrite MCP connector
 
-MCP server for [ClaudeRewrite](https://removeclaudewatermark.com) - the #1 Claude watermark removal tool.
+Rewrite Claude-generated text through a different, non-watermarking model so the statistical pattern in the wording no longer matches. Built by [ClaudeRewrite](https://removeclaudewatermark.com).
 
-## Tools
+**One tool: `rewrite_text(text)`.** Sign in with your ClaudeRewrite account (OAuth) the first time you connect. There is no API key to copy.
 
-### `rewrite_text`
-Rewrites text to remove Claude's statistical watermark. Preserves meaning, facts, numbers, and code while breaking the token pattern detectors flag.
+## Connect
 
-### `strip_image_metadata`
-Removes C2PA "Made with Claude" credentials, EXIF, XMP, ICC, and all other metadata from images. Supports JPG, PNG, WebP, GIF, TIFF.
+Connector URL: `https://removeclaudewatermark.com/api/mcp`
 
-## Hosted connector (use this one)
-
-The hosted connector now lives at **https://removeclaudewatermark.com/api/mcp** and uses OAuth: sign in with your
-ClaudeRewrite account and usage comes out of your plan's word quota. Setup: https://removeclaudewatermark.com/docs/mcp
+**Claude Code**
 
 ```bash
-claude mcp add --transport http claudeclear https://removeclaudewatermark.com/api/mcp
+claude mcp add claudeclear --transport http https://removeclaudewatermark.com/api/mcp
 ```
 
-The old `claudeclear-mcp.vercel.app/api/mcp` endpoint is retired: it no longer rewrites and only points to the new URL.
+Then run `/mcp` in Claude Code and choose Authenticate.
 
-## Install (local stdio package, bring your own API key)
-
-```bash
-npx claudeclear-mcp
-```
-
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `CLAUDECLEAR_API_KEY` | Yes (for rewrite) | Your API key from [removeclaudewatermark.com/account](https://removeclaudewatermark.com/account) |
-| `CLAUDECLEAR_API_URL` | No | API base URL (default: `https://removeclaudewatermark.com`) |
-| `CLAUDECLEAR_MCP_HTTP` | No | Set to `1` to run as HTTP server instead of stdio |
-
-## Usage with Claude Code
-
-Add to your Claude Code settings:
+**Claude Desktop** (`claude_desktop_config.json`)
 
 ```json
 {
   "mcpServers": {
     "claudeclear": {
-      "command": "npx",
-      "args": ["claudeclear-mcp"],
-      "env": {
-        "CLAUDECLEAR_API_KEY": "your-api-key"
-      }
+      "type": "http",
+      "url": "https://removeclaudewatermark.com/api/mcp"
     }
   }
 }
 ```
 
-## HTTP Mode
+**Claude (web) and ChatGPT:** add the URL as a custom connector, then sign in and choose Allow.
 
-```bash
-CLAUDECLEAR_MCP_HTTP=1 CLAUDECLEAR_API_KEY=your-key npx claudeclear-mcp
-```
+Full setup: https://removeclaudewatermark.com/docs/mcp
 
-Server listens on port 3311 by default.
+## The tool
 
-## Listed in
+`rewrite_text(text: string)` rewrites a passage (up to about 30,000 characters per call) and returns the rewritten text. It is designed to keep facts, numbers, names and code intact; read the result before you publish it. It does not read your files, chats or history.
 
-- [Claude Market MCP directory](https://www.claudemarket.ai/mcp)
+## Accounts and limits
+
+Usage comes out of your ClaudeRewrite monthly word quota, the same one the website uses. Free accounts get a small free monthly allowance; paid plans get more ([pricing](https://removeclaudewatermark.com/pricing)). When your quota is used up, the tool says so and nothing is rewritten.
+
+## Privacy and support
+
+The connector receives only the text you ask it to rewrite and your account identifier. See the [privacy policy](https://removeclaudewatermark.com/privacy). Questions: [contact](https://removeclaudewatermark.com/contact).
+
+## Other ways to use it
+
+- **Website:** paste text at https://removeclaudewatermark.com
+- **REST API** (paid plans): https://removeclaudewatermark.com/api-docs
+- **Local stdio package** (bring your own API key from your account page): `npx claudeclear-mcp`, with `CLAUDECLEAR_API_KEY` set. This older package also includes a `strip_image_metadata` tool that removes C2PA and EXIF data from images.
+
+ClaudeRewrite is independent and is not affiliated with Anthropic or OpenAI.
 
 ## License
 
